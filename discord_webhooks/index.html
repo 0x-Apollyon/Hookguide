@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hooksguide: Discord Webhooks</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #181818;
+      color: #ffffff;
+      margin: 0;
+    }
+
+    .container {
+      background: #282828;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+      width: 80%;
+      max-width: 800px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .input-group {
+      width: 100%;
+      max-width: 600px;
+    }
+
+    input[type="text"], input[type="submit"] {
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #000000;
+      border-radius: 4px;
+      font-size: 16px; /* Decreased font size */
+      background-color: #383838;
+      color: white;
+    }
+
+    input[type="submit"] {
+      background-color: #000dff;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    input[type="submit"]:hover {
+      background-color: #0eecf0;
+    }
+
+    .button {
+      padding: 10px 20px;
+      margin: 10px;
+      border-radius: 4px;
+      font-size: 16px; /* Decreased font size */
+      color: white;
+      background-color: #000dff;
+      text-decoration: none;
+      display: inline-block;
+      transition: background-color 0.3s ease;
+    }
+
+    .button:hover {
+      background-color: #0eecf0;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 20px;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 10px;
+      border: 1px solid #444;
+      text-align: left;
+      color: white;
+      word-wrap: break-word;
+    }
+
+    th {
+      background-color: #383838;
+      color: white;
+    }
+
+    #responseTable {
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      width: 100%;
+      border: 1px solid #444;
+    }
+
+    #time {
+      margin-top: 10px;
+      color: white;
+    }
+
+    #webhookImage {
+      margin-top: 20px;
+      max-width: 100%;
+      width: 800px;
+      height: auto;  /* Maintain aspect ratio */
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Hooksguide: Discord Webhooks</h1>
+    <div class="input-group">
+      <input type="text" id="webhookUrl" placeholder="Enter Discord Webhook URL" />
+      <input type="submit" id="sendRequest" value="Send Request" />
+    </div>
+    <div id="responseTable"></div>
+    <div id="time"></div>
+    <img id="webhookImage" src="webhookinfo.webp" alt="Webhook Info" width="5000" height="6000" />
+    <a href="./discord_webhook_sender.html" class="button">Send Message Through Webhook</a>
+    <a href="#" id="deleteWebhook" class="button">Delete Webhook</a>
+  </div>
+
+  <script>
+    document.getElementById('sendRequest').addEventListener('click', function() {
+      const webhookUrl = document.getElementById('webhookUrl').value;
+      const responseTableDiv = document.getElementById('responseTable');
+      const timeDiv = document.getElementById('time');
+
+      responseTableDiv.innerHTML = '';
+      timeDiv.innerText = '';
+
+      const webhookRegex = /^https:\/\/discord\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
+
+      if (!webhookUrl.match(webhookRegex)) {
+        responseTableDiv.innerHTML = "<p>Not a valid Discord webhook URL.</p>";
+        return;
+      }
+
+      fetch(webhookUrl, {
+        method: 'GET',
+        cache: 'no-store'
+      })
+      .then(response => {
+        if (!response.ok) {
+          if (response.status === 401) {
+            responseTableDiv.innerHTML = "<p>Invalid webhook token.</p>";
+          } else if (response.status === 404) {
+            responseTableDiv.innerHTML = "<p>Webhook doesn't exist or was deleted.</p>";
+          } else {
+            responseTableDiv.innerHTML = "<p>Request failed with status " + response.status + ".</p>";
+          }
+          throw new Error('Response error');
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (data.message === "Unknown Webhook" && data.code === 10015) {
+          responseTableDiv.innerHTML = "<p>Webhook was deleted.</p>";
+        } else {
+          const table = document.createElement('table');
+          const tbody = document.createElement('tbody');
+
+          for (let key in data) {
+            if (data.hasOwnProperty(key)) {
+              const row = document.createElement('tr');
+
+              const keyCell = document.createElement('th');
+              keyCell.innerText = key;
+
+              const valueCell = document.createElement('td');
+              valueCell.innerText = typeof data[key] === 'object' ? JSON.stringify(data[key], null, 2) : data[key];
+
+              row.appendChild(keyCell);
+              row.appendChild(valueCell);
+              tbody.appendChild(row);
+            }
+          }
+
+          table.appendChild(tbody);
+          responseTableDiv.appendChild(table);
+
+          const webhookId = webhookUrl.match(/\/webhooks\/(\d+)\//);
+          if (webhookId) {
+            const creationTime = getCreationTimeFromSnowflake(webhookId[1]);
+            timeDiv.innerText = "Webhook Created: " + creationTime;
+          }
+        }
+      })
+      .catch(error => {
+        if (error.message !== 'Response error') {
+          responseTableDiv.innerHTML = '<p>Error: ' + error.message + '</p>';
+        }
+      });
+    });
+
+    document.querySelector('.button[href="./discord_webhook_sender.html"]').addEventListener('click', function() {
+      // Redirect to send message through webhook without validation
+    });
+
+    document.getElementById('deleteWebhook').addEventListener('click', function() {
+      const webhookUrl = document.getElementById('webhookUrl').value;
+
+      if (!webhookUrl.match(/^https:\/\/discord\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/)) {
+        alert('Not a valid Discord webhook URL.');
+        return;
+      }
+
+      fetch(webhookUrl, {
+        method: 'DELETE',
+        cache: 'no-store'
+      })
+      .then(response => {
+        if (response.ok) {
+          alert('Webhook deleted successfully.');
+        } else {
+          if (response.status === 401) {
+            alert('Invalid webhook token.');
+          } else if (response.status === 404) {
+            alert('Webhook does not exist or was already deleted.');
+          } else {
+            alert('Request failed with status ' + response.status + '.');
+          }
+        }
+      })
+      .catch(error => {
+        alert('Error: ' + error.message);
+      });
+    });
+
+    function getCreationTimeFromSnowflake(snowflake) {
+      const discordEpoch = 1420070400000;
+      const timestamp = BigInt(snowflake) >> 22n;
+      const creationDate = new Date(Number(timestamp) + discordEpoch);
+      return creationDate.toUTCString();
+    }
+  </script>
+</body>
+</html>

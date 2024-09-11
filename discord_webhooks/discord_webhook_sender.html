@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hooksguide: Send Message Through Webhook</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #181818;
+      color: #ffffff;
+      margin: 0;
+    }
+
+    .container {
+      background: #282828;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+      width: 90%;
+      max-width: 800px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .input-group {
+      width: 100%;
+    }
+
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #000000;
+      border-radius: 4px;
+      font-size: 16px;
+      background-color: #383838;
+      color: white;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .button-container {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+    }
+
+    input[type="submit"] {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #000dff;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    input[type="submit"]:hover {
+      background-color: #0eecf0;
+    }
+
+    .message, .error {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+
+    .message {
+      color: #00ff00;
+    }
+
+    .error {
+      color: #ff0000;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Hooksguide: Send Message Through Webhook</h1>
+    <div class="input-group">
+      <input type="text" id="webhookUrl" placeholder="Webhook URL" />
+      <input type="text" id="webhookName" placeholder="Webhook Name" />
+      <input type="text" id="webhookAvatar" placeholder="Webhook Avatar URL" />
+      <textarea id="message" placeholder="Message [Supports markdown]"></textarea>
+    </div>
+    <div class="button-container">
+      <input type="submit" id="sendMessage" value="Send Message " />
+    </div>
+    <div id="responseMessage" class="message"></div>
+    <div id="responseError" class="error"></div>
+  </div>
+
+  <script>
+    document.getElementById('sendMessage').addEventListener('click', function() {
+      const webhookUrl = document.getElementById('webhookUrl').value;
+      const webhookName = document.getElementById('webhookName').value;
+      const webhookAvatar = document.getElementById('webhookAvatar').value;
+      const message = document.getElementById('message').value;
+      const responseMessageDiv = document.getElementById('responseMessage');
+      const responseErrorDiv = document.getElementById('responseError');
+
+      responseMessageDiv.innerHTML = '';
+      responseErrorDiv.innerHTML = '';
+
+      const webhookRegex = /^https:\/\/discord\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
+
+      if (!webhookUrl.match(webhookRegex)) {
+        responseErrorDiv.innerHTML = "<p>Not a valid Discord webhook URL.</p>";
+        return;
+      }
+
+      const payload = {
+        content: message,
+        username: webhookName || undefined,
+        avatar_url: webhookAvatar || undefined
+      };
+
+      fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        cache: 'no-store'
+      })
+      .then(response => {
+        if (response.ok) {
+          responseMessageDiv.innerHTML = "<p>Successfully sent the message.</p>";
+        } else {
+          if (response.status === 401) {
+            responseErrorDiv.innerHTML = "<p>Webhook token invalid.</p>";
+          } else if (response.status === 400 || response.status === 404) {
+            responseErrorDiv.innerHTML = "<p>Webhook doesn't exist or was deleted.</p>";
+          } else if (response.status === 429) {
+            responseErrorDiv.innerHTML = "<p>Rate limited. Try again later.</p>";
+          } else {
+            responseErrorDiv.innerHTML = "<p>Request failed with status " + response.status + ".</p>";
+          }
+        }
+      })
+      .catch(error => {
+        responseErrorDiv.innerHTML = '<p>Error: ' + error.message + '</p>';
+      });
+    });
+  </script>
+</body>
+</html>

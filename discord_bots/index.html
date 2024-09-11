@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HooksGuide</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            width: 600px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #61dafb;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #2c2c2c;
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: #e0e0e0;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #61dafb;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #121212;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #21a1f1;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #282828;
+            border-radius: 8px;
+            color: #ffffff;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .error {
+            color: #ff6b6b;
+            margin-top: 10px;
+        }
+
+        .profile-picture {
+            display: inline-block;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .profile-picture img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin: 10px 0;
+            border: 2px solid #61dafb;
+        }
+
+        .profile-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .profile-info div {
+            margin: 10px 0;
+        }
+
+        .info {
+            text-align: left;
+            width: calc(100% - 100px); /* Adjust for profile picture space */
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>HooksGuide: Discord Token Info</h1>
+    
+    <label for="tokenType">Select Token Type:</label>
+    <select id="tokenType">
+        <option value="1">Bot Token</option>
+        <option value="2">User Token</option>
+    </select>
+
+    <label for="token">Enter Token:</label>
+    <input type="text" id="token" placeholder="Enter Discord Token">
+
+    <button onclick="getTokenInfo()">Get Token Info</button>
+
+    <div id="result" class="result"></div>
+    <div id="error" class="error"></div>
+</div>
+
+<script>
+    async function getTokenInfo() {
+        document.getElementById('result').innerHTML = '';
+        document.getElementById('error').innerHTML = '';
+
+        const tokenType = document.getElementById('tokenType').value;
+        const token = document.getElementById('token').value.trim();
+        
+        if (!token) {
+            document.getElementById('error').innerHTML = '[X] Please enter a valid token.';
+            return;
+        }
+
+        const apiEndpoint = 'https://discord.com/api/v10/users/@me';
+
+        try {
+            const response = await fetch(apiEndpoint, {
+                method: 'GET',
+                headers: {
+                    'Authorization': tokenType == 1 ? `Bot ${token}` : token,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            let resultHTML = `<h3>Token Info</h3>`;
+            resultHTML += `
+                <h4>User/Bot Info</h4>
+                <div class="profile-info">
+                    <div class="profile-picture">
+                        <img src="https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png?size=1024" alt="Avatar">
+                    </div>
+                    <div class="info">
+                        <p>ID: ${data.id}</p>
+                        <p>Username: ${data.username}#${data.discriminator}</p>
+                        <p>Email: ${data.email || "No email available"}</p>
+                        <p>Phone: ${data.phone || "No phone available"}</p>
+                    </div>
+                </div>
+                <p>MFA Enabled: ${data.mfa_enabled ? "Yes" : "No"}</p>
+                <p>Verified: ${data.verified ? "Yes" : "No"}</p>
+                <p>Language: ${data.locale || "Unknown"}</p>
+                <p>Has Nitro: ${data.premium_type ? "Yes" : "No"}</p>
+                <p>Bio: ${data.bio || "No bio available"}</p>
+                <p>NSFW Allowed: ${data.nsfw_allowed ? "Yes" : "No"}</p>
+                <p>Profile Decoration: ${data.avatar_decoration_data || "None"}</p>
+            `;
+
+            document.getElementById('result').innerHTML = resultHTML;
+        } catch (error) {
+            document.getElementById('error').innerHTML = `[X] Failed to fetch token info: ${error.message}. Attempting to extract from the token itself...`;
+            extractInfoFromToken(token);
+        }
+    }
+
+    function extractInfoFromToken(token) {
+        try {
+            const tokenParts = token.split('.');
+            if (tokenParts.length < 3) {
+                throw new Error('Invalid token format');
+            }
+
+            const base64TokenId = tokenParts[0];
+            const decodedId = atob(base64TokenId + '==');
+            const tokenId = parseInt(decodedId, 10);
+
+            const discordEpoch = 1420070400000;
+            const timestamp = (tokenId >> 22) + discordEpoch;
+            const creationTime = new Date(timestamp);
+
+            const resultHTML = `
+                <h3>Token Info (Extracted from Token)</h3>
+                <p>Token ID: ${tokenId}</p>
+                <p>Creation Time: ${creationTime.toUTCString()}</p>
+            `;
+
+            document.getElementById('result').innerHTML = resultHTML;
+        } catch (e) {
+            document.getElementById('error').innerHTML = `[X] Failed to extract token info: ${e.message}`;
+        }
+    }
+</script>
+
+</body>
+</html>
