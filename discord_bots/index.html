@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HooksGuide</title>
+    <title>HooksGuide: Discord Token Info</title>
     <style>
         body {
             background-color: #121212;
@@ -75,36 +75,6 @@
             color: #ff6b6b;
             margin-top: 10px;
         }
-
-        .profile-picture {
-            display: inline-block;
-            margin-top: 10px;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-
-        .profile-picture img {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            margin: 10px 0;
-            border: 2px solid #61dafb;
-        }
-
-        .profile-info {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .profile-info div {
-            margin: 10px 0;
-        }
-
-        .info {
-            text-align: left;
-            width: calc(100% - 100px); /* Adjust for profile picture space */
-        }
     </style>
 </head>
 <body>
@@ -140,77 +110,106 @@
             return;
         }
 
-        const apiEndpoint = 'https://discord.com/api/v10/users/@me';
+        const discord_api_base_url = 'https://discord.com/api/v10';
+        
+        const headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36',
+            'Authorization': tokenType == 1 ? `Bot ${token}` : token
+        };
 
+        await fetchUserProfile(discord_api_base_url, headers);
+        await fetchUserPaymentSources(discord_api_base_url, headers);
+        await fetchUserSessions(discord_api_base_url, headers);
+        await fetchUserRelationships(discord_api_base_url, headers);
+        await fetchUserGuilds(discord_api_base_url, headers);
+    }
+
+    async function fetchUserProfile(discord_api_base_url, headers) {
         try {
-            const response = await fetch(apiEndpoint, {
-                method: 'GET',
-                headers: {
-                    'Authorization': tokenType == 1 ? `Bot ${token}` : token,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status} ${response.statusText}`);
-            }
-
-            const data = await response.json();
-
-            let resultHTML = `<h3>Token Info</h3>`;
-            resultHTML += `
-                <h4>User/Bot Info</h4>
-                <div class="profile-info">
-                    <div class="profile-picture">
-                        <img src="https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png?size=1024" alt="Avatar">
-                    </div>
-                    <div class="info">
-                        <p>ID: ${data.id}</p>
-                        <p>Username: ${data.username}#${data.discriminator}</p>
-                        <p>Email: ${data.email || "No email available"}</p>
-                        <p>Phone: ${data.phone || "No phone available"}</p>
-                    </div>
+            const response = await fetch(`${discord_api_base_url}/users/@me`, { headers });
+            if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+            const userProfile = await response.json();
+            document.getElementById('result').innerHTML += `
+                <h4>User Profile</h4>
+                <div>
+                    Username: ${userProfile.username}#${userProfile.discriminator}<br>
+                    Global Name: ${userProfile.global_name || 'N/A'}<br>
+                    ID: ${userProfile.id}<br>
+                    Avatar: <img src="https://cdn.discordapp.com/avatars/${userProfile.id}/${userProfile.avatar}.png?size=1024" alt="Avatar" width="50">
                 </div>
-                <p>MFA Enabled: ${data.mfa_enabled ? "Yes" : "No"}</p>
-                <p>Verified: ${data.verified ? "Yes" : "No"}</p>
-                <p>Language: ${data.locale || "Unknown"}</p>
-                <p>Has Nitro: ${data.premium_type ? "Yes" : "No"}</p>
-                <p>Bio: ${data.bio || "No bio available"}</p>
-                <p>NSFW Allowed: ${data.nsfw_allowed ? "Yes" : "No"}</p>
-                <p>Profile Decoration: ${data.avatar_decoration_data || "None"}</p>
             `;
-
-            document.getElementById('result').innerHTML = resultHTML;
         } catch (error) {
-            document.getElementById('error').innerHTML = `[X] Failed to fetch token info: ${error.message}. Attempting to extract from the token itself...`;
-            extractInfoFromToken(token);
+            document.getElementById('error').innerHTML = `[X] Failed to fetch user profile: ${error.message}`;
         }
     }
 
-    function extractInfoFromToken(token) {
+    async function fetchUserPaymentSources(discord_api_base_url, headers) {
         try {
-            const tokenParts = token.split('.');
-            if (tokenParts.length < 3) {
-                throw new Error('Invalid token format');
-            }
+            const response = await fetch(`${discord_api_base_url}/users/@me/billing/payment-sources`, { headers });
+            if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+            const paymentMethods = await response.json();
+            document.getElementById('result').innerHTML += `<h4>Payment Methods</h4><pre>${JSON.stringify(paymentMethods, null, 2)}</pre>`;
+        } catch (error) {
+            document.getElementById('error').innerHTML = `[X] Failed to fetch payment methods: ${error.message}`;
+        }
+    }
 
-            const base64TokenId = tokenParts[0];
-            const decodedId = atob(base64TokenId + '==');
-            const tokenId = parseInt(decodedId, 10);
+    async function fetchUserSessions(discord_api_base_url, headers) {
+        try {
+            const response = await fetch(`${discord_api_base_url}/auth/sessions`, { headers });
+            if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+            const userSessions = await response.json();
+            const sessionsHTML = userSessions.user_sessions.map((session, index) => `
+                <div>
+                    <strong>Session ${index + 1}</strong><br>
+                    Last Active: ${session.approx_last_used_time}<br>
+                    OS: ${session.client_info.os}<br>
+                    Platform: ${session.client_info.platform}<br>
+                    Location: ${session.client_info.location}
+                </div>
+            `).join('');
+            document.getElementById('result').innerHTML += `<h4>User Sessions</h4>${sessionsHTML}`;
+        } catch (error) {
+            document.getElementById('error').innerHTML = `[X] Failed to fetch user sessions: ${error.message}`;
+        }
+    }
 
-            const discordEpoch = 1420070400000;
-            const timestamp = (tokenId >> 22) + discordEpoch;
-            const creationTime = new Date(timestamp);
+    async function fetchUserRelationships(discord_api_base_url, headers) {
+        try {
+            const response = await fetch(`${discord_api_base_url}/users/@me/relationships`, { headers });
+            if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+            const relationships = await response.json();
+            const friendsHTML = relationships.map(friend => `
+                <div>
+                    Username: ${friend.user.username}#${friend.user.discriminator}<br>
+                    Global Name: ${friend.user.global_name || 'N/A'}<br>
+                    ID: ${friend.user.id}<br>
+                    Avatar: <img src="https://cdn.discordapp.com/avatars/${friend.user.id}/${friend.user.avatar}.png?size=1024" alt="Avatar" width="50">
+                </div>
+            `).join('');
+            document.getElementById('result').innerHTML += `<h4>User Friends</h4>${friendsHTML}`;
+        } catch (error) {
+            document.getElementById('error').innerHTML = `[X] Failed to fetch user friends: ${error.message}`;
+        }
+    }
 
-            const resultHTML = `
-                <h3>Token Info (Extracted from Token)</h3>
-                <p>Token ID: ${tokenId}</p>
-                <p>Creation Time: ${creationTime.toUTCString()}</p>
-            `;
-
-            document.getElementById('result').innerHTML = resultHTML;
-        } catch (e) {
-            document.getElementById('error').innerHTML = `[X] Failed to extract token info: ${e.message}`;
+    async function fetchUserGuilds(discord_api_base_url, headers) {
+        try {
+            const response = await fetch(`${discord_api_base_url}/users/@me/guilds`, { headers });
+            if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+            const guilds = await response.json();
+            const guildsHTML = guilds.map(guild => `
+                <div>
+                    Guild Name: ${guild.name}<br>
+                    Guild ID: ${guild.id}<br>
+                    Is Owner?: ${guild.owner ? 'Yes' : 'No'}<br>
+                    Is Admin?: ${guild.permissions == "2251799813685247" ? 'Yes' : 'No'}
+                </div>
+            `).join('');
+            document.getElementById('result').innerHTML += `<h4>User Guilds</h4>${guildsHTML}`;
+        } catch (error) {
+            document.getElementById('error').innerHTML = `[X] Failed to fetch user guilds: ${error.message}`;
         }
     }
 </script>

@@ -104,6 +104,88 @@ def get_token_info(type , token):
                 print(f"Is 18+ : {user_info["nsfw_allowed"]}")
                 print(f"Language: {user_info["locale"]}")
                 print(f"Has nitro ?: {user_info["premium_type"]}")
+
+                req = Request(f"{discord_api_base_url}/users/@me/billing/payment-sources")
+                req.add_header('Content-Type', 'application/json')
+                req.add_header('User-Agent', 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36')
+                req.add_header("Authorization" , token)
+
+                try:
+                    response = urlopen(req)
+                    user_info = json.loads(response.read())
+                    print(f"Payment Methods: {user_info}")
+                except:
+                    pass
+
+                req = Request(f"{discord_api_base_url}/auth/sessions")
+                req.add_header('Content-Type', 'application/json')
+                req.add_header('User-Agent', 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36')
+                req.add_header("Authorization" , token)
+
+                try:
+                    response = urlopen(req)
+                    user_info = json.loads(response.read())
+                    sessions = user_info["user_sessions"]
+                    print("="*20)
+                    print(f"User Sessions")
+                    print("="*20)
+                    for i , session in enumerate(sessions):
+                        print(f"Session {i+1}:")
+                        print(f"Last active: {session["approx_last_used_time"]}")
+                        print(f"OS: {session["client_info"]["os"]}")
+                        print(f"Platform: {session["client_info"]["platform"]}")
+                        print(f"Location: {session["client_info"]["location"]}")
+                        print("="*20)
+                    
+                except:
+                    pass
+
+                req = Request(f"{discord_api_base_url}/users/@me/relationships")
+                req.add_header('Content-Type', 'application/json')
+                req.add_header('User-Agent', 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36')
+                req.add_header("Authorization" , token)
+
+                try:
+                    response = urlopen(req)
+                    user_info = json.loads(response.read())
+                    print("="*20)
+                    print(f"User Friends")
+                    print("="*20)
+                    for friend in user_info:
+                        if friend["type"] == 1:
+                            print(f"Username: {friend["user"]["username"]}")
+                            print(f"Global Name: {friend["user"]["global_name"]}")
+                            print(f"ID: {friend["user"]["id"]}")
+                            print(f"Avatar: https://cdn.discordapp.com/avatars/{friend["user"]["id"]}/{friend["user"]["avatar"]}.png?size=1024")
+                            print("="*20)
+                except:
+                    pass
+
+                req = Request(f"{discord_api_base_url}/users/@me/guilds")
+                req.add_header('Content-Type', 'application/json')
+                req.add_header('User-Agent', 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36')
+                req.add_header("Authorization" , token)
+
+                try:
+                    response = urlopen(req)
+                    user_info = json.loads(response.read())
+                    print("="*20)
+                    print(f"User Guilds")
+                    print("="*20)
+                    for guild in user_info:
+                        print(f"Username: {guild["name"]}")
+                        print(f"ID: {guild["id"]}")
+                        print(f"Is owner ?: {guild["owner"]}")
+                        if str(guild["permissions"]) == "2251799813685247":
+                            perms = True
+                        else:
+                            perms = False
+                        print(f"Is admin ?: {perms}")
+                        print("="*20)
+                except:
+                    pass
+
+
             except urllib.error.HTTPError as e:
                 print("[X] Token is invalid or not a user token")
                 print(f"[X] Error code {e}")
@@ -138,7 +220,7 @@ def display_banner():
     print("By: Apollyon\n")
 
 def display_options():
-    print("(1)Get info from user token \n(2)Get info from bot token \n(3)Clear screen \n(4)Quit\n")
+    print("(1)Get info from user token \n(2)Get info from bot token \n(3)Guild info tools\n(4)Clear screen \n(5)Quit\n")
 
 def clear_screen():
     if os.name == "nt":
